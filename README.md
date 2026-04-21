@@ -136,6 +136,16 @@ codex exec --cd "/home/you/tools/memory-compiler" "uv run python scripts/lint.py
 codex exec --cd "/home/you/tools/memory-compiler" "uv run python scripts/query.py \"What auth patterns do I use?\""
 ```
 
+What they do:
+- `compile.py` - compiles new/changed `daily/*.md` logs into structured `knowledge/*` articles.
+- `lint.py --structural-only` - runs free structural checks (links/orphans/staleness/backlinks/sparsity) without LLM contradiction check.
+- `query.py "..."` - asks the compiled knowledge base and returns an answer from current `knowledge/*` content.
+
+When to run:
+- Run `compile.py` after new session logs are flushed (or before querying if you want latest notes included).
+- Run `lint.py --structural-only` after compile or before commit/push to catch KB integrity issues.
+- Run `query.py` when you need fast recall of patterns/decisions already captured in memory.
+
 ## Core Commands
 
 ```bash
