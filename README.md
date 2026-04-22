@@ -37,13 +37,13 @@ Version locking:
 
 Windows (PowerShell):
 ```powershell
-git clone <repo-url> "$HOME\ai-tools\codex-memory-compiler"
+git clone https://github.com/AHTI6IOTIK/codex-memory-compiler.git "$HOME\ai-tools\codex-memory-compiler"
 cd "$HOME\ai-tools\codex-memory-compiler"
 ```
 
 Unix-like (bash/zsh):
 ```bash
-git clone <repo-url> ~/ai-tools/codex-memory-compiler
+git clone https://github.com/AHTI6IOTIK/codex-memory-compiler.git ~/ai-tools/codex-memory-compiler
 cd ~/ai-tools/codex-memory-compiler
 ```
 
@@ -123,8 +123,8 @@ Replace `<MEMORY_COMPILER_ROOT>` with absolute path:
 - Windows example: `$HOME\ai-tools\codex-memory-compiler`
 - Unix-like example: `$HOME/ai-tools/codex-memory-compiler`
 
-Per-project opt-out:
-- Create `.codex-memory-disable` in the target project root.
+Per-project opt-in:
+- Create `.codex-memory-enable` in the target project root.
 
 SessionStart context verbosity:
 - Default: `KB_SESSIONSTART_CONTEXT_MODE=off` (empty `additionalContext`, no large hook context banner in Codex UI).

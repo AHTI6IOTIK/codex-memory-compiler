@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 MAX_CONTEXT_CHARS = 20_000
 MAX_LOG_LINES = 30
-DISABLE_MARKER = ".codex-memory-disable"
+ENABLE_MARKER = ".codex-memory-enable"
 SESSIONSTART_MODE_ENV = "KB_SESSIONSTART_CONTEXT_MODE"
 
 
@@ -36,11 +36,11 @@ def _parse_hook_input() -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _is_disabled(hook_input: dict) -> bool:
+def _is_enabled(hook_input: dict) -> bool:
     cwd = hook_input.get("cwd")
     if not isinstance(cwd, str) or not cwd.strip():
         return False
-    return (Path(cwd) / DISABLE_MARKER).exists()
+    return (Path(cwd) / ENABLE_MARKER).exists()
 
 
 def _resolve_wiki_root(hook_input: dict) -> Path | None:
@@ -149,7 +149,7 @@ def build_minimal_context(daily_dir: Path, index_file: Path) -> str:
 
 def main():
     hook_input = _parse_hook_input()
-    if _is_disabled(hook_input):
+    if not _is_enabled(hook_input):
         print(
             json.dumps(
                 {

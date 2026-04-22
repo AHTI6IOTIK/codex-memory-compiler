@@ -30,14 +30,14 @@ logging.basicConfig(
 MAX_TURNS = 40
 MAX_CONTEXT_CHARS = 20_000
 MIN_TURNS_TO_FLUSH = 1
-DISABLE_MARKER = ".codex-memory-disable"
+ENABLE_MARKER = ".codex-memory-enable"
 
 
-def _is_disabled(hook_input: dict) -> bool:
+def _is_enabled(hook_input: dict) -> bool:
     cwd = hook_input.get("cwd")
     if not isinstance(cwd, str) or not cwd.strip():
         return False
-    return (Path(cwd) / DISABLE_MARKER).exists()
+    return (Path(cwd) / ENABLE_MARKER).exists()
 
 
 def _resolve_wiki_root(hook_input: dict) -> Path | None:
@@ -148,8 +148,8 @@ def main() -> None:
         logging.error("Failed to parse hook stdin: %s", e)
         return
 
-    if _is_disabled(hook_input):
-        logging.info("SKIP: memory compiler disabled by marker file")
+    if not _is_enabled(hook_input):
+        logging.info("SKIP: memory compiler not enabled (missing .codex-memory-enable)")
         return
 
     session_id = str(hook_input.get("session_id", "unknown"))

@@ -369,7 +369,7 @@ suppress_unstable_features_warning = true
 
 The `Stop` hook captures transcript context and spawns `scripts/flush.py`. On Windows, use `scripts/ingest_codex_transcript.py` as fallback when hooks are unavailable.
 
-Per-project opt-out: if a project contains `.codex-memory-disable` in its root (`cwd`), both `SessionStart` and `Stop` hooks skip processing for that project.
+Per-project opt-in: hooks run only if a project contains `.codex-memory-enable` in its root (`cwd`); otherwise both `SessionStart` and `Stop` skip processing.
 
 ### Hook Details
 
