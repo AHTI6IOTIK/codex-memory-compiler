@@ -43,6 +43,11 @@ def _is_enabled(hook_input: dict) -> bool:
     return (Path(cwd) / ENABLE_MARKER).exists()
 
 
+def _status_context(enabled: bool) -> str:
+    status = "вкл" if enabled else "выкл"
+    return f"## Memory Compiler\nСтатус: {status} (по файлу .codex-memory-enable)"
+
+
 def _resolve_wiki_root(hook_input: dict) -> Path | None:
     """Resolve storage root from hook cwd (prefer git toplevel)."""
     cwd = hook_input.get("cwd")
@@ -149,13 +154,15 @@ def build_minimal_context(daily_dir: Path, index_file: Path) -> str:
 
 def main():
     hook_input = _parse_hook_input()
-    if not _is_enabled(hook_input):
+    enabled = _is_enabled(hook_input)
+
+    if not enabled:
         print(
             json.dumps(
                 {
                     "hookSpecificOutput": {
                         "hookEventName": "SessionStart",
-                        "additionalContext": "",
+                        "additionalContext": _status_context(enabled=False),
                     }
                 }
             )
@@ -172,11 +179,13 @@ def main():
 
     mode = os.environ.get(SESSIONSTART_MODE_ENV, "off").strip().lower()
     if mode == "full":
-        context = build_context(DAILY_DIR, INDEX_FILE)
+        context = "\n\n---\n\n".join([_status_context(enabled=True), build_context(DAILY_DIR, INDEX_FILE)])
     elif mode == "off":
-        context = ""
+        context = _status_context(enabled=True)
     else:
-        context = build_minimal_context(DAILY_DIR, INDEX_FILE)
+        context = "\n\n---\n\n".join(
+            [_status_context(enabled=True), build_minimal_context(DAILY_DIR, INDEX_FILE)]
+        )
 
     output = {
         "hookSpecificOutput": {
