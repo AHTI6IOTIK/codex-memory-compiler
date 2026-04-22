@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -20,6 +22,19 @@ UV_BIN = ROOT / "bin" / ("uv.exe" if sys.platform == "win32" else "uv")
 
 MAX_TURNS = 40
 MAX_CONTEXT_CHARS = 20_000
+
+
+def _slugify_project_name(value: str) -> str:
+    lowered = value.strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    return slug or "project"
+
+
+def _project_slug() -> str:
+    wiki_path = os.environ.get("KB_WIKI_PATH", "").strip()
+    if wiki_path:
+        return _slugify_project_name(Path(wiki_path).expanduser().name)
+    return _slugify_project_name(ROOT.name)
 
 
 def find_latest_rollout() -> Path | None:
@@ -119,7 +134,7 @@ def main() -> None:
         return
 
     timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y%m%d-%H%M%S")
-    context_file = SCRIPTS_DIR / f"manual-context-{args.session_id}-{timestamp}.md"
+    context_file = SCRIPTS_DIR / f"{_project_slug()}-manual-context-{args.session_id}-{timestamp}.md"
     context_file.write_text(context, encoding="utf-8")
 
     flush_script = SCRIPTS_DIR / "flush.py"

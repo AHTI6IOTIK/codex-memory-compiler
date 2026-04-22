@@ -11,6 +11,7 @@ scripts/state.json
 scripts/last-flush.json
 scripts/flush.log
 scripts/compile.log
+scripts/*.log
 scripts/session-flush-*
 scripts/flush-context-*
 scripts/stop-context-*

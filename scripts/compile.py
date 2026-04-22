@@ -9,12 +9,20 @@ import json
 import sys
 from pathlib import Path
 
-from config import CONCEPTS_DIR, DAILY_DIR, KNOWLEDGE_DIR, LOG_FILE, now_iso
+from config import CONCEPTS_DIR, DAILY_DIR, KNOWLEDGE_DIR, LOG_FILE, WIKI_PATH_EXPLICIT, now_iso
 from llm import generate_json
 from utils import file_hash, list_raw_files, list_wiki_articles, load_state, read_wiki_index, save_state
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 INDEX_PATH = KNOWLEDGE_DIR / "index.md"
+
+
+def print_storage_target() -> None:
+    mode = "explicit override (KB_WIKI_PATH/wiki_path)" if WIKI_PATH_EXPLICIT else "project-local default"
+    print("Knowledge base storage target:")
+    print(f"  - Mode: {mode}")
+    print(f"  - Daily: {DAILY_DIR}")
+    print(f"  - Knowledge: {KNOWLEDGE_DIR}")
 
 
 def ensure_knowledge_base_files() -> None:
@@ -140,7 +148,7 @@ def append_build_log(log_name: str, created: list[str], updated: list[str], time
         f.write("\n".join(lines) + "\n")
 
 
-def compile_daily_log(log_path: Path, state: dict) -> None:
+def compile_daily_log(log_path: Path, state: dict) -> bool:
     ensure_knowledge_base_files()
     log_content = log_path.read_text(encoding="utf-8")
     index_content = read_wiki_index()
@@ -149,7 +157,7 @@ def compile_daily_log(log_path: Path, state: dict) -> None:
         payload = generate_json(prompt, reasoning_effort="medium")
     except Exception as e:
         print(f"  Error during compilation: {e}")
-        return
+        return False
 
     concepts = payload.get("concepts", [])
     created: list[str] = []
@@ -187,6 +195,7 @@ def compile_daily_log(log_path: Path, state: dict) -> None:
         "cost_usd": 0.0,
     }
     save_state(state)
+    return True
 
 
 def main() -> None:
@@ -195,6 +204,8 @@ def main() -> None:
     parser.add_argument("--file", type=str, help="Compile a specific daily log file")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be compiled")
     args = parser.parse_args()
+
+    print_storage_target()
 
     state = load_state()
     if args.file:
@@ -228,10 +239,22 @@ def main() -> None:
     if args.dry_run:
         return
 
+    failed_logs: list[str] = []
     for i, log_path in enumerate(to_compile, 1):
         print(f"\n[{i}/{len(to_compile)}] Compiling {log_path.name}...")
-        compile_daily_log(log_path, state)
-        print("  Done.")
+        ok = compile_daily_log(log_path, state)
+        if ok:
+            print("  Done.")
+        else:
+            print("  Failed.")
+            failed_logs.append(log_path.name)
+
+    if failed_logs:
+        print("\nCompilation finished with errors.")
+        print(f"Failed logs ({len(failed_logs)}):")
+        for name in failed_logs:
+            print(f"  - {name}")
+        sys.exit(1)
 
     print(f"\nCompilation complete. Knowledge base: {len(list_wiki_articles())} articles")
 

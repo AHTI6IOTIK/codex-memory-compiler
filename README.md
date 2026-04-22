@@ -37,14 +37,14 @@ Version locking:
 
 Windows (PowerShell):
 ```powershell
-git clone <repo-url> D:\tools\memory-compiler
-cd D:\tools\memory-compiler
+git clone <repo-url> "$HOME\ai-tools\codex-memory-compiler"
+cd "$HOME\ai-tools\codex-memory-compiler"
 ```
 
 Unix-like (bash/zsh):
 ```bash
-git clone <repo-url> ~/tools/memory-compiler
-cd ~/tools/memory-compiler
+git clone <repo-url> ~/ai-tools/codex-memory-compiler
+cd ~/ai-tools/codex-memory-compiler
 ```
 
 2. Install dependencies:
@@ -62,12 +62,13 @@ Global config location:
 - Unix-like: `~/.codex/config.toml`
 
 ```toml
+suppress_unstable_features_warning = true
+
 [features]
 codex_hooks = true
-suppress_unstable_features_warning = true
 ```
 
-4. Set storage root in `AGENTS.md` (top-level line, outside code blocks):
+4. Set storage root (optional) in `AGENTS.md` (top-level line, outside code blocks):
 
 Windows:
 ```text
@@ -82,6 +83,11 @@ wiki_path: /home/you/codex-memory
 If `wiki_path` is not set, storage defaults to project root:
 - `<project_root>/daily`
 - `<project_root>/knowledge`
+
+When hooks run globally, they automatically derive `<project_root>` from the active Codex session `cwd` (git toplevel when available), so logs are written to the project you are currently working in.
+
+`KB_WIKI_PATH` environment variable has highest priority for direct script runs (`compile/lint/query`) and overrides `wiki_path`.
+For Codex hooks (`SessionStart`/`Stop`), storage root is always derived from the hook event `cwd` (git toplevel when available) to prevent cross-session leakage between simultaneously opened projects.
 
 This stores:
 - `daily` in `<wiki_path>/daily`
@@ -114,26 +120,45 @@ export KB_CODEX_CMD=codex
 Use template: [.codex/hooks.global.example.json](.codex/hooks.global.example.json)
 
 Replace `<MEMORY_COMPILER_ROOT>` with absolute path:
-- Windows example: `D:\tools\memory-compiler`
-- Unix-like example: `/home/you/tools/memory-compiler`
+- Windows example: `$HOME\ai-tools\codex-memory-compiler`
+- Unix-like example: `$HOME/ai-tools/codex-memory-compiler`
 
 Per-project opt-out:
 - Create `.codex-memory-disable` in the target project root.
 
+SessionStart context verbosity:
+- Default: `KB_SESSIONSTART_CONTEXT_MODE=off` (empty `additionalContext`, no large hook context banner in Codex UI).
+- `KB_SESSIONSTART_CONTEXT_MODE=minimal`: injects compact context (today, top KB highlights, recent daily log tail).
+- `KB_SESSIONSTART_CONTEXT_MODE=full`: injects full context payload (legacy behavior, most verbose).
+
 ## One-line Commands via Codex
+
+Important:
+- `--cd` points to the compiler code location (`codex-memory-compiler`).
+- `KB_WIKI_PATH` points to the target project where `daily/` and `knowledge/` are read/written.
+- Run commands from the target project directory so `KB_WIKI_PATH="$PWD"` points to that repo.
+- Set env vars inline before each script command invocation.
+- With `--dangerously-bypass-approvals-and-sandbox`, `UV_CACHE_DIR` is optional (keep it only if you want explicit uv cache location).
 
 Windows (PowerShell):
 ```powershell
-codex exec --cd "D:\tools\memory-compiler" "uv run python scripts/compile.py"
-codex exec --cd "D:\tools\memory-compiler" "uv run python scripts/lint.py --structural-only"
-codex exec --cd "D:\tools\memory-compiler" "uv run python scripts/query.py `"What auth patterns do I use?`""
+$env:KB_WIKI_PATH="$PWD"; codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME\ai-tools\codex-memory-compiler" "uv run python scripts/compile.py"
+$env:KB_WIKI_PATH="$PWD"; codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME\ai-tools\codex-memory-compiler" "uv run python scripts/lint.py --structural-only"
+$env:KB_WIKI_PATH="$PWD"; codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME\ai-tools\codex-memory-compiler" "uv run python scripts/query.py `"What auth patterns do I use?`""
 ```
 
 Unix-like (bash/zsh):
 ```bash
-codex exec --cd "/home/you/tools/memory-compiler" "uv run python scripts/compile.py"
-codex exec --cd "/home/you/tools/memory-compiler" "uv run python scripts/lint.py --structural-only"
-codex exec --cd "/home/you/tools/memory-compiler" "uv run python scripts/query.py \"What auth patterns do I use?\""
+KB_WIKI_PATH="$PWD" codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME/ai-tools/codex-memory-compiler" "uv run python scripts/compile.py"
+KB_WIKI_PATH="$PWD" codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME/ai-tools/codex-memory-compiler" "uv run python scripts/lint.py --structural-only"
+KB_WIKI_PATH="$PWD" codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME/ai-tools/codex-memory-compiler" "uv run python scripts/query.py \"What auth patterns do I use?\""
+```
+
+Unix-like (fish):
+```fish
+env KB_WIKI_PATH=(pwd) codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME/ai-tools/codex-memory-compiler" "uv run python scripts/compile.py"
+env KB_WIKI_PATH=(pwd) codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME/ai-tools/codex-memory-compiler" "uv run python scripts/lint.py --structural-only"
+env KB_WIKI_PATH=(pwd) codex exec --dangerously-bypass-approvals-and-sandbox --cd "$HOME/ai-tools/codex-memory-compiler" "uv run python scripts/query.py \"What auth patterns do I use?\""
 ```
 
 What they do:
@@ -156,6 +181,14 @@ uv run python scripts/lint.py
 uv run python scripts/lint.py --structural-only
 ```
 
+```fish
+env KB_WIKI_PATH=(pwd) uv run python scripts/compile.py
+env KB_WIKI_PATH=(pwd) uv run python scripts/query.py "question"
+env KB_WIKI_PATH=(pwd) uv run python scripts/query.py "question" --file-back
+env KB_WIKI_PATH=(pwd) uv run python scripts/lint.py
+env KB_WIKI_PATH=(pwd) uv run python scripts/lint.py --structural-only
+```
+
 ## Manual Ingest Fallback
 
 If hooks are unavailable in your environment:
@@ -163,6 +196,28 @@ If hooks are unavailable in your environment:
 ```bash
 uv run python scripts/ingest_codex_transcript.py
 ```
+
+## Logs and State Files
+
+Storage location depends on `KB_WIKI_PATH` (or `wiki_path` in `AGENTS.md`):
+- Daily source logs: `<wiki_root>/daily/YYYY-MM-DD.md`
+- Compiled KB index/log/articles: `<wiki_root>/knowledge/*`
+
+Runtime files live in the compiler repo:
+- Lint reports: `reports/<project>-lint-YYYY-MM-DD.md`
+- Hook runtime logs/state (project-prefixed):
+  - `scripts/<project>-flush.log`
+  - `scripts/<project>-compile.log`
+  - `scripts/<project>-last-flush.json`
+  - `scripts/<project>-manual-context-<session>-<timestamp>.md` (temporary/manual ingest context)
+- Stop hook temporary context handoff:
+  - `scripts/stop-context-<session>-<timestamp>.md` (created by `hooks/stop.py`, then removed by `flush.py`)
+- Stop hook logger: `scripts/flush.log` (hook-level diagnostics)
+- Global compiler state: `scripts/state.json` (ingested hashes, query count, total cost, last lint)
+
+How `<project>` is derived:
+- If `KB_WIKI_PATH`/`wiki_path` is set: basename of that path (example: `.../b2b-casbin-server` -> `b2b-casbin-server`)
+- Otherwise: compiler repo folder name (`codex-memory-compiler`)
 
 ## Optional OpenAI API Key Mode
 

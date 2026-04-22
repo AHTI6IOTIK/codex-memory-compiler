@@ -32,6 +32,7 @@ wiki_path: /home/you/wiki-root
 ```
 
 Behavior:
+- if `KB_WIKI_PATH` env var is set, runtime uses `<KB_WIKI_PATH>/daily` and `<KB_WIKI_PATH>/knowledge` (highest priority)
 - if `wiki_path` is set, runtime uses `<wiki_path>/daily` and `<wiki_path>/knowledge`
 - if `wiki_path` is not set, runtime uses project-local `daily/` and `knowledge/` (auto-created if missing)
 - if `wiki_path` is set explicitly, runtime attempts to create `<wiki_path>/daily` and `<wiki_path>/knowledge`; if creation fails, runtime exits with a clear error
@@ -374,6 +375,7 @@ Per-project opt-out: if a project contains `.codex-memory-disable` in its root (
 
 **`session-start.py`** (SessionStart)
 - Pure local I/O, no API calls, runs in under 1 second
+- Resolves storage root from hook `cwd`/git toplevel and sets `KB_WIKI_PATH` for this hook process (unless already set)
 - Reads `knowledge/index.md` and the most recent daily log
 - Outputs JSON to stdout: `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "..."}}`
 - Codex sees the knowledge base index at the start of every session
@@ -382,6 +384,7 @@ Per-project opt-out: if a project contains `.codex-memory-disable` in its root (
 **`stop.py`** (Stop)
 - Reads hook input from stdin (JSON with `session_id`, `transcript_path`, `cwd`)
 - Copies the raw JSONL transcript to a temp file (no parsing in the hook - keeps it fast)
+- Resolves storage root from hook `cwd`/git toplevel and passes it to `flush.py` via `KB_WIKI_PATH` (unless already set)
 - Spawns `flush.py` as a fully detached background process
 - Recursion guard: exits immediately if `KB_INVOKED_BY` env var is set
 

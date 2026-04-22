@@ -177,6 +177,23 @@ def _extract_assistant_text(event: dict[str, Any]) -> str:
     return ""
 
 
+def _prepare_codex_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    # Nested `codex exec` inside Codex sandbox often cannot write to ~/.codex/sessions.
+    # Redirect nested Codex state to a writable location under ~/.codex/memories.
+    if env.get("CODEX_SANDBOX") and not env.get("CODEX_HOME"):
+        codex_root = Path.home() / ".codex"
+        nested_home = codex_root / "memories" / "nested-codex-home"
+        nested_home.mkdir(parents=True, exist_ok=True)
+        for name in ("auth.json", "config.toml", "installation_id", "version.json", "models_cache.json"):
+            src = codex_root / name
+            dst = nested_home / name
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+        env["CODEX_HOME"] = str(nested_home)
+    return env
+
+
 def _generate_text_with_codex(prompt: str) -> str:
     """Run Codex CLI in non-interactive mode and return the assistant response text."""
     cmd = [
@@ -195,6 +212,7 @@ def _generate_text_with_codex(prompt: str) -> str:
             text=True,
             encoding="utf-8",
             errors="replace",
+            env=_prepare_codex_subprocess_env(),
             check=False,
         )
     except OSError as e:

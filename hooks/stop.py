@@ -40,6 +40,33 @@ def _is_disabled(hook_input: dict) -> bool:
     return (Path(cwd) / DISABLE_MARKER).exists()
 
 
+def _resolve_wiki_root(hook_input: dict) -> Path | None:
+    """Resolve storage root from hook cwd (prefer git toplevel)."""
+    cwd = hook_input.get("cwd")
+    if not isinstance(cwd, str) or not cwd.strip():
+        return None
+
+    base = Path(cwd).expanduser()
+    if not base.exists():
+        return None
+
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(base),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        resolved = proc.stdout.strip()
+        if resolved:
+            return Path(resolved)
+    except Exception:
+        pass
+
+    return base
+
+
 def _extract_text(content: object) -> str:
     if isinstance(content, str):
         return content.strip()
@@ -164,6 +191,11 @@ def main() -> None:
     ]
     creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     child_env = os.environ.copy()
+    # Always bind storage root to the hook event cwd/git root to avoid
+    # cross-session leakage when KB_WIKI_PATH is exported in a parent shell.
+    wiki_root = _resolve_wiki_root(hook_input)
+    if wiki_root is not None:
+        child_env["KB_WIKI_PATH"] = str(wiki_root)
     child_env.setdefault("UV_CACHE_DIR", str(ROOT / ".uv-cache"))
     child_env.setdefault("UV_PYTHON_INSTALL_DIR", str(ROOT / ".uv-python"))
     child_env.setdefault("UV_TOOL_DIR", str(ROOT / ".uv-tools"))
@@ -175,7 +207,10 @@ def main() -> None:
             creationflags=creation_flags,
             env=child_env,
         )
-        logging.info("Spawned flush.py from Stop for session %s", session_id)
+        if wiki_root is not None:
+            logging.info("Spawned flush.py from Stop for session %s (wiki_root=%s)", session_id, wiki_root)
+        else:
+            logging.info("Spawned flush.py from Stop for session %s", session_id)
     except Exception as e:
         logging.error("Failed to spawn flush.py: %s", e)
 

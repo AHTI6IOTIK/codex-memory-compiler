@@ -10,20 +10,37 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import DAILY_DIR, ROOT_DIR, SCRIPTS_DIR
+from config import DAILY_DIR, ROOT_DIR, SCRIPTS_DIR, WIKI_PATH, WIKI_PATH_EXPLICIT
 from llm import generate_text
 
 # Recursion guard for hook-triggered subprocesses
 os.environ["KB_INVOKED_BY"] = "memory_flush"
 
-STATE_FILE = SCRIPTS_DIR / "last-flush.json"
-LOG_FILE = SCRIPTS_DIR / "flush.log"
+
+def _slugify_project_name(value: str) -> str:
+    lowered = value.strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    return slug or "project"
+
+
+def _project_slug() -> str:
+    if WIKI_PATH_EXPLICIT and WIKI_PATH is not None:
+        name = Path(WIKI_PATH).name
+    else:
+        name = ROOT_DIR.name
+    return _slugify_project_name(name)
+
+
+PROJECT_SLUG = _project_slug()
+STATE_FILE = SCRIPTS_DIR / f"{PROJECT_SLUG}-last-flush.json"
+LOG_FILE = SCRIPTS_DIR / f"{PROJECT_SLUG}-flush.log"
 UV_BIN = ROOT_DIR / "bin" / ("uv.exe" if sys.platform == "win32" else "uv")
 
 logging.basicConfig(
@@ -139,7 +156,7 @@ def maybe_trigger_compilation() -> None:
     child_env.setdefault("UV_TOOL_DIR", str(ROOT_DIR / ".uv-tools"))
 
     try:
-        log_handle = open(str(SCRIPTS_DIR / "compile.log"), "a", encoding="utf-8")
+        log_handle = open(str(SCRIPTS_DIR / f"{PROJECT_SLUG}-compile.log"), "a", encoding="utf-8")
         subprocess.Popen(cmd, stdout=log_handle, stderr=subprocess.STDOUT, cwd=str(ROOT_DIR), env=child_env, **kwargs)
         logging.info("Triggered background compilation")
     except Exception as e:

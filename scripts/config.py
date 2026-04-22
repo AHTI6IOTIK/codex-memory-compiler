@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────
-ROOT_DIR = Path(__file__).resolve().parent.parent
+APP_ROOT = Path(__file__).resolve().parent.parent
+# Backward-compatible alias used across scripts.
+ROOT_DIR = APP_ROOT
 
 
 def _expand_env_vars(raw: str) -> str:
@@ -37,7 +39,7 @@ def _expand_env_vars(raw: str) -> str:
 
 def _parse_path_override_from_agents(key: str) -> tuple[Path | None, bool]:
     """Read optional `<key>: <path>` override from AGENTS.md."""
-    agents_file = ROOT_DIR / "AGENTS.md"
+    agents_file = APP_ROOT / "AGENTS.md"
     if not agents_file.exists():
         return None, False
 
@@ -65,15 +67,41 @@ def _parse_path_override_from_agents(key: str) -> tuple[Path | None, bool]:
 
         expanded = _expand_env_vars(raw)
         path = Path(expanded).expanduser()
-        return (path if path.is_absolute() else ROOT_DIR / path), True
+        return (path if path.is_absolute() else APP_ROOT / path), True
     return None, False
 
 
-WIKI_PATH, WIKI_PATH_EXPLICIT = _parse_path_override_from_agents("wiki_path")
+def _parse_path_override_from_env(key: str) -> tuple[Path | None, bool]:
+    """Read optional `<key>` override from environment variables."""
+    raw = os.environ.get(key)
+    if raw is None:
+        return None, False
+    raw = raw.strip()
+    if not raw:
+        return None, True
+
+    expanded = _expand_env_vars(raw)
+    path = Path(expanded).expanduser()
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    return path, True
+
+
+env_wiki_path, env_wiki_path_explicit = _parse_path_override_from_env("KB_WIKI_PATH")
+agents_wiki_path, agents_wiki_path_explicit = _parse_path_override_from_agents("wiki_path")
+
+if env_wiki_path_explicit:
+    WIKI_PATH = env_wiki_path
+    WIKI_PATH_EXPLICIT = True
+    _wiki_path_source = "KB_WIKI_PATH"
+else:
+    WIKI_PATH = agents_wiki_path
+    WIKI_PATH_EXPLICIT = agents_wiki_path_explicit
+    _wiki_path_source = "AGENTS.md wiki_path"
 
 if WIKI_PATH_EXPLICIT:
     if WIKI_PATH is None:
-        raise RuntimeError("wiki_path is explicitly set in AGENTS.md but is empty.")
+        raise RuntimeError(f"{_wiki_path_source} is explicitly set but is empty.")
 
     DAILY_DIR = WIKI_PATH / "daily"
     KNOWLEDGE_DIR = WIKI_PATH / "knowledge"
@@ -82,7 +110,7 @@ if WIKI_PATH_EXPLICIT:
             target.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             raise RuntimeError(
-                "Failed to create directories for explicit wiki_path in AGENTS.md. "
+                f"Failed to create directories for explicit path override ({_wiki_path_source}). "
                 f"wiki_path={WIKI_PATH}, target={target}, error={exc}"
             ) from exc
 else:

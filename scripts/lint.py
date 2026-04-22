@@ -12,7 +12,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from config import KNOWLEDGE_DIR, REPORTS_DIR, now_iso, today_iso
+import re
+from pathlib import Path
+
+from config import KNOWLEDGE_DIR, REPORTS_DIR, ROOT_DIR, WIKI_PATH, WIKI_PATH_EXPLICIT, now_iso, today_iso
 from llm import generate_text
 from utils import (
     count_inbound_links,
@@ -26,6 +29,21 @@ from utils import (
     save_state,
     wiki_article_exists,
 )
+
+
+def _slugify_project_name(value: str) -> str:
+    lowered = value.strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    return slug or "project"
+
+
+def _report_project_slug() -> str:
+    if WIKI_PATH_EXPLICIT and WIKI_PATH is not None:
+        name = Path(WIKI_PATH).name
+    else:
+        name = ROOT_DIR.name
+    return _slugify_project_name(name)
+
 
 def check_broken_links() -> list[dict]:
     """Check for [[wikilinks]] that point to non-existent articles."""
@@ -262,7 +280,7 @@ def main():
     # Generate and save report
     report = generate_report(all_issues)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = REPORTS_DIR / f"lint-{today_iso()}.md"
+    report_path = REPORTS_DIR / f"{_report_project_slug()}-lint-{today_iso()}.md"
     report_path.write_text(report, encoding="utf-8")
     print(f"\nReport saved to: {report_path}")
 
