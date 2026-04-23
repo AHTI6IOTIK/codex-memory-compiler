@@ -22,7 +22,6 @@ sys.path.insert(0, str(ROOT / "scripts"))
 MAX_CONTEXT_CHARS = 20_000
 MAX_LOG_LINES = 30
 ENABLE_MARKER = ".codex-memory-enable"
-SESSIONSTART_MODE_ENV = "KB_SESSIONSTART_CONTEXT_MODE"
 
 
 def _parse_hook_input() -> dict:
@@ -91,17 +90,6 @@ def get_recent_log(daily_dir: Path) -> str:
     return "(no recent daily log)"
 
 
-def _extract_index_rows(index_content: str, limit: int = 5) -> list[str]:
-    rows: list[str] = []
-    for line in index_content.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("| [["):
-            rows.append(stripped)
-            if len(rows) >= limit:
-                break
-    return rows
-
-
 def build_context(daily_dir: Path, index_file: Path) -> str:
     """Assemble the context to inject into the conversation."""
     parts = []
@@ -130,28 +118,6 @@ def build_context(daily_dir: Path, index_file: Path) -> str:
     return context
 
 
-def build_minimal_context(daily_dir: Path, index_file: Path) -> str:
-    """Build compact context to avoid noisy hook banners in Codex UI."""
-    parts = []
-
-    today = datetime.now(timezone.utc).astimezone()
-    parts.append(f"## Today\n{today.strftime('%A, %B %d, %Y')}")
-
-    if index_file.exists():
-        index_content = index_file.read_text(encoding="utf-8")
-        rows = _extract_index_rows(index_content, limit=5)
-        if rows:
-            parts.append("## Knowledge Highlights\n" + "\n".join(rows))
-        else:
-            parts.append("## Knowledge Highlights\n(index has no article rows yet)")
-    else:
-        parts.append("## Knowledge Highlights\n(index file not found)")
-
-    recent_log = get_recent_log(daily_dir)
-    parts.append(f"## Recent Daily Log\n\n{recent_log}")
-    return "\n\n---\n\n".join(parts)
-
-
 def main():
     hook_input = _parse_hook_input()
     enabled = _is_enabled(hook_input)
@@ -177,15 +143,7 @@ def main():
 
     from config import DAILY_DIR, INDEX_FILE
 
-    mode = os.environ.get(SESSIONSTART_MODE_ENV, "off").strip().lower()
-    if mode == "full":
-        context = "\n\n---\n\n".join([_status_context(enabled=True), build_context(DAILY_DIR, INDEX_FILE)])
-    elif mode == "off":
-        context = _status_context(enabled=True)
-    else:
-        context = "\n\n---\n\n".join(
-            [_status_context(enabled=True), build_minimal_context(DAILY_DIR, INDEX_FILE)]
-        )
+    context = "\n\n---\n\n".join([_status_context(enabled=True), build_context(DAILY_DIR, INDEX_FILE)])
 
     output = {
         "hookSpecificOutput": {

@@ -130,9 +130,7 @@ SessionStart context verbosity:
 - `SessionStart` always reports Memory Compiler status in `additionalContext`:
   - `Статус: вкл` when `.codex-memory-enable` exists in project root
   - `Статус: выкл` when marker file is missing
-- Default: `KB_SESSIONSTART_CONTEXT_MODE=off` (status-only output, no large hook context banner in Codex UI).
-- `KB_SESSIONSTART_CONTEXT_MODE=minimal`: injects compact context (today, top KB highlights, recent daily log tail).
-- `KB_SESSIONSTART_CONTEXT_MODE=full`: injects full context payload (legacy behavior, most verbose).
+- `SessionStart` injects knowledge context (index + recent daily log) when enabled.
 
 ## One-line Commands via Codex
 
